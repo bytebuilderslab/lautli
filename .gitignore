@@ -19,3 +19,7 @@ build/
 .next/
 coverage/
 .ruff_cache/
+
+# iOS: per-developer signing team (see ios/Config/Shared.xcconfig)
+ios/Config/Local.xcconfig
+xcuserdata/

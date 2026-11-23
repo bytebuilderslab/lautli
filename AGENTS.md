@@ -1,6 +1,6 @@
 # AGENTS.md
 
-lautli: a macOS menu-bar app (Swift, `macos/`) that talks to a local Python transcription worker (`worker/lautli_worker/`) over JSON lines. Read `CONTRIBUTING.md` first (layout, protocol, setup flow, string translation).
+lautli: a macOS menu-bar app (Swift, `macos/`) that talks to a local Python transcription worker (`worker/lautli_worker/`) over JSON lines. The iPhone app and dictation keyboard (`ios/`, epic #33) are described in `ios/README.md`. Read `CONTRIBUTING.md` first (layout, protocol, setup flow, string translation).
 
 ## Toolchain
 
@@ -11,6 +11,8 @@ lautli: a macOS menu-bar app (Swift, `macos/`) that talks to a local Python tran
 
 ```sh
 swift test --package-path macos                      # macOS only
+swift test --package-path ios/LautliKit              # iPhone app/keyboard shared logic
+xcodebuild -project ios/Lautli.xcodeproj -scheme Lautli -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/ruff check .                               # PY-001 / PY-002: lint plus typed signatures
 .venv/bin/python -m pytest -q
