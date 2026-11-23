@@ -18,6 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: swift test --package-path macos
+  ios:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - run: swift test --package-path ios/LautliKit
+      - run: xcodebuild -project ios/Lautli.xcodeproj -scheme Lautli -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
   python:
     runs-on: macos-26
     steps:
