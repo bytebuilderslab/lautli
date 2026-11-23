@@ -36,9 +36,9 @@ Until the hosted server exists (#33 Phase 3), the Mac serves the same API with t
 WHISPER_MODEL_PATH=.models/flix-swissgerman-full .venv/bin/python -m worker.lautli_worker.dev_server
 ```
 
-It loads the model in the background (`/ready` returns 503 until it has loaded), then logs `{"event": "listening", "url": "http://<lan-ip>:8765"}`. Enter that URL in the app. Logs hold request IDs, sizes, status codes and durations, never audio or text. It decodes clips with macOS `afconvert` into a temporary directory that is deleted after each request. It has no authentication, so run it only on a network you trust. On an M1 Pro a warm 6-second clip takes about 8 seconds.
+It loads the model in the background (`/ready` returns 503 until it has loaded), then logs `{"event": "listening", "url": "http://<lan-ip>:8765"}` and prints a server token. Enter both in the app; transcription requests without the token get 401. Set `LAUTLI_DEV_TOKEN` to keep the same token across restarts. Logs hold request IDs, sizes, status codes and durations, never audio or text. It decodes clips with macOS `afconvert` into a temporary directory that is deleted after each request. The token travels over plain HTTP, so run it only on a network you trust. On an M1 Pro a warm 6-second clip takes about 8 seconds.
 
-Server contract: the request body is the AAC clip (`Content-Type: audio/mp4`) with an `X-Request-ID` header. The response is `{"data": {"text": "..."}, "error": null, "meta": {...}}`, and anything else counts as a failure.
+Server contract: the request body is the AAC clip (`Content-Type: audio/mp4`) with an `X-Request-ID` header and, for the dev server, `Authorization: Bearer <token>`. The response is `{"data": {"text": "..."}, "error": null, "meta": {...}}`, and anything else counts as a failure.
 
 ## Known gaps
 

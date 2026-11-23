@@ -17,6 +17,11 @@ final class DictationController {
     var serverAddress: String {
         didSet { UserDefaults.standard.set(serverAddress, forKey: Self.serverAddressKey) }
     }
+    // shortcut: the dev server token sits in UserDefaults, not the Keychain; it only guards a LAN dev server.
+    // Drop it when the hosted server's App Attest replaces the token (#33 Phase 3).
+    var serverToken: String {
+        didSet { UserDefaults.standard.set(serverToken, forKey: Self.serverTokenKey) }
+    }
 
     @ObservationIgnored private var session = DictationSession()
     @ObservationIgnored private let capture = AudioCapture()
@@ -27,9 +32,11 @@ final class DictationController {
     @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
 
     private static let serverAddressKey = "transcriptionServerAddress"
+    private static let serverTokenKey = "transcriptionServerToken"
 
     init() {
         serverAddress = UserDefaults.standard.string(forKey: Self.serverAddressKey) ?? ""
+        serverToken = UserDefaults.standard.string(forKey: Self.serverTokenKey) ?? ""
         if store == nil { problem = .sharedContainerUnavailable }
         commandObserver = DarwinSignalObserver(.commandIssued) { [weak self] in self?.applyPendingCommand() }
         publish()
@@ -131,7 +138,7 @@ final class DictationController {
         guard let server = TranscriptionAPI.serverURL(from: serverAddress) else { return .failure(.noServerConfigured) }
         guard let audio = try? Data(contentsOf: clip) else { return .failure(.recordingFailed) }
         do {
-            let (body, response) = try await URLSession.shared.data(for: TranscriptionAPI.request(serverURL: server, clip: audio, requestID: id))
+            let (body, response) = try await URLSession.shared.data(for: TranscriptionAPI.request(serverURL: server, token: serverToken, clip: audio, requestID: id))
             guard let http = response as? HTTPURLResponse else { return .failure(.server) }
             return TranscriptionAPI.transcript(statusCode: http.statusCode, body: body)
         } catch {

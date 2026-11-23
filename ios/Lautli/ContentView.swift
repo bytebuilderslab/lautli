@@ -69,6 +69,9 @@ struct ContentView: View {
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+            SecureField("Server token (dev server prints it)", text: $controller.serverToken)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
             if !controller.serverAddress.isEmpty, TranscriptionAPI.serverURL(from: controller.serverAddress) == nil {
                 Text("Enter an http:// or https:// address.").foregroundStyle(.red)
             }

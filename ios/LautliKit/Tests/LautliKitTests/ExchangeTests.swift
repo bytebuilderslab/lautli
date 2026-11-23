@@ -81,11 +81,18 @@ final class ExchangeTests: XCTestCase {
     func testRequestTargetsTheVersionedEndpoint() throws {
         let server = try XCTUnwrap(TranscriptionAPI.serverURL(from: " http://192.168.1.20:8765 "))
         let id = DictationRequestID()
-        let request = TranscriptionAPI.request(serverURL: server, clip: Data([1, 2]), requestID: id)
+        let request = TranscriptionAPI.request(serverURL: server, token: " secret\n", clip: Data([1, 2]), requestID: id)
 
         XCTAssertEqual(request.url?.absoluteString, "http://192.168.1.20:8765/api/v1/transcriptions")
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.value(forHTTPHeaderField: "X-Request-ID"), id.description)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer secret")
+    }
+
+    func testRequestWithoutTokenSendsNoAuthorization() throws {
+        let server = try XCTUnwrap(TranscriptionAPI.serverURL(from: "https://lautli.example"))
+        let request = TranscriptionAPI.request(serverURL: server, token: "", clip: Data(), requestID: DictationRequestID())
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
     }
 
     func testServerURLRejectsNonHTTPInput() {

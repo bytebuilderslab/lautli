@@ -25,7 +25,7 @@ from worker.lautli_worker.dev_server import (
 def running(recognize=None, decode=lambda _: np.zeros(SAMPLE_RATE_HZ, dtype=np.float32)):
     slot = ModelSlot()
     slot.recognize = recognize
-    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(slot, decode))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(slot, decode, "secret"))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         yield f"http://127.0.0.1:{server.server_address[1]}"
@@ -34,11 +34,13 @@ def running(recognize=None, decode=lambda _: np.zeros(SAMPLE_RATE_HZ, dtype=np.f
         server.server_close()
 
 
-def call(url, body=None, content_type="audio/mp4"):
+def call(url, body=None, content_type="audio/mp4", token="secret"):
     request = urllib.request.Request(url, data=body, method="POST" if body is not None else "GET")
     if body is not None:
         request.add_header("Content-Type", content_type)
         request.add_header("X-Request-ID", "test")
+        if token is not None:
+            request.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(request) as response:
             return response.status, json.loads(response.read())
@@ -63,6 +65,13 @@ def test_ready_reports_loading_until_the_model_is_there():
         assert (status, body["error"]["code"]) == (503, "model_loading")
         status, body = call(f"{base}/api/v1/transcriptions", b"clip")
         assert (status, body["error"]["code"]) == (503, "model_loading")
+
+
+def test_transcription_requires_the_token():
+    with running(recognize=lambda _: [{"text": "Hallo"}]) as base:
+        assert call(f"{base}/api/v1/transcriptions", b"clip", token=None)[0] == 401
+        status, body = call(f"{base}/api/v1/transcriptions", b"clip", token="wrong")
+        assert (status, body["error"]["code"]) == (401, "unauthorized")
 
 
 def test_rejects_wrong_content_type_and_empty_body():

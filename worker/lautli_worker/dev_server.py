@@ -2,13 +2,17 @@
 
 Serves the iPhone API contract (`POST /api/v1/transcriptions`) from a Mac using the same model and cleanup
 as the desktop worker, so the phone can be tested before the hosted server exists. Not a production server:
-it has no App Attest, quotas or TLS, and it decodes audio with macOS `afconvert`.
+it has no App Attest, quotas or TLS, and it decodes audio with macOS `afconvert`. Requests need the
+bearer token printed at startup (or set with LAUTLI_DEV_TOKEN), since the server listens on the LAN.
 
     WHISPER_MODEL_PATH=.models/flix-swissgerman-full python -m worker.lautli_worker.dev_server
 """
 
 import argparse
+import hmac
 import json
+import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -85,7 +89,9 @@ class ModelSlot:
         self.lock = threading.Lock()
 
 
-def make_handler(slot: ModelSlot, decode: Decoder) -> type[BaseHTTPRequestHandler]:
+def make_handler(slot: ModelSlot, decode: Decoder, token: str) -> type[BaseHTTPRequestHandler]:
+    expected = f"Bearer {token}".encode()
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path == "/health":
@@ -108,6 +114,8 @@ def make_handler(slot: ModelSlot, decode: Decoder) -> type[BaseHTTPRequestHandle
         def transcription(self) -> tuple[int, bytes, int]:
             if self.path != "/api/v1/transcriptions":
                 return 404, envelope(None, {"code": "not_found"}), 0
+            if not hmac.compare_digest(self.headers.get("Authorization", "").encode(), expected):
+                return 401, envelope(None, {"code": "unauthorized"}), 0
             if slot.recognize is None:
                 return 503, envelope(None, {"code": "model_loading"}), 0
             if self.headers.get("Content-Type", "").split(";")[0].strip() != CLIP_CONTENT_TYPE:
@@ -170,12 +178,15 @@ def run() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8765)
     arguments = parser.parse_args()
+    token = os.environ.get("LAUTLI_DEV_TOKEN") or secrets.token_urlsafe(16)
     slot = ModelSlot()
     load_in_background(slot)
-    # shortcut: listens on the whole LAN without authentication; only run it on a trusted network.
-    # Upgrade to App Attest plus TLS in the hosted server (#33 Phase 3).
-    server = ThreadingHTTPServer(("0.0.0.0", arguments.port), make_handler(slot, decode_with_afconvert))
+    # shortcut: plain HTTP with a shared token, so the token can be sniffed on the LAN; run it only on a
+    # trusted network. The hosted server replaces this with TLS plus App Attest (#33 Phase 3).
+    server = ThreadingHTTPServer(("0.0.0.0", arguments.port), make_handler(slot, decode_with_afconvert, token))
     log(event="listening", url=f"http://{lan_address()}:{arguments.port}")
+    # On stdout, not in the structured log: the token is a secret the user types into the app.
+    print(f"Server token for the lautli app: {token}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

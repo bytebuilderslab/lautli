@@ -5,11 +5,14 @@ import Foundation
 public enum TranscriptionAPI {
     public static let clipContentType = "audio/mp4"
 
-    public static func request(serverURL: URL, clip: Data, requestID: DictationRequestID) -> URLRequest {
+    /// `token` is the dev server's shared secret; the hosted server will use App Attest instead.
+    public static func request(serverURL: URL, token: String, clip: Data, requestID: DictationRequestID) -> URLRequest {
         var request = URLRequest(url: serverURL.appending(path: "api/v1/transcriptions"), timeoutInterval: 60)
         request.httpMethod = "POST"
         request.setValue(clipContentType, forHTTPHeaderField: "Content-Type")
         request.setValue(requestID.description, forHTTPHeaderField: "X-Request-ID")
+        let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         request.httpBody = clip
         return request
     }
